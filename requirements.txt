@@ -3,3 +3,4 @@ yfinance
 numpy
 tqdm
 tenacity
+python-dotenv
