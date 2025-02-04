@@ -6,6 +6,129 @@ from numpy.typing import NDArray
 
 # If Updated remember to adjust date at bottom
 
+
+import yfinance as yf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+class MPTOptimizer:
+    """Class will run MPT, with customized iterations, methods will return graph plotting efficient frontier, and return wieghts"""
+    def __init__(self, stocks: list, start_date: str, end_date: str, iterations: int = 100_000):
+        self.stocks = stocks
+        self.start_date = start_date
+        self.end_date = end_date
+        self.iterations = iterations
+        self.returns = []
+        self.stds = []
+        self.weights = []
+
+        # Download stock data
+        self.data = yf.download(stocks, start=start_date, end=end_date)["Close"]
+        
+        # Calculate log returns
+        self.stocks_lr = np.log(1 + self.data.pct_change()).dropna()
+
+    def portfolio_return(self, weights):
+        """Calculates expected portfolio return"""
+        return np.dot(self.stocks_lr.mean(), weights) * 252
+
+    def portfolio_std(self, weights):
+        """Calculates portfolio standard deviation (risk)"""
+        return np.sqrt(np.dot(weights.T, np.dot(self.stocks_lr.cov(), weights)) * 252)
+
+    def generate_weights(self):
+        """Generates random portfolio weights"""
+        rand_weights = np.random.random(len(self.stocks_lr.columns))
+        return rand_weights / rand_weights.sum()
+
+    def simulate_portfolios(self):
+        """Simulates random portfolios and stores their returns, risks, and weights"""
+        for _ in range(self.iterations):
+            weights = self.generate_weights()
+            port_return = self.portfolio_return(weights)
+            port_std = self.portfolio_std(weights)
+
+            self.returns.append(port_return)
+            self.stds.append(port_std)
+            self.weights.append(weights)
+
+    def plot_efficient_frontier(self): # returns figure
+        """Plots the efficient frontier"""
+        plt.figure(figsize=(10, 6))
+        plt.scatter(self.stds, self.returns, c="red", s=0.5, alpha=0.5)
+
+        # Maximum return portfolio
+        max_return_idx = np.argmax(self.returns)
+        plt.scatter(self.stds[max_return_idx], self.returns[max_return_idx], c="green", s=50, label="Max Return")
+
+        # Minimum variance portfolio
+        min_std_idx = np.argmin(self.stds)
+        plt.scatter(self.stds[min_std_idx], self.returns[min_std_idx], c="blue", s=50, label="Min Variance")
+
+        plt.xlabel("Portfolio Risk (Std Dev)")
+        plt.ylabel("Expected Return")
+        plt.title("Efficient Frontier")
+        plt.legend()
+        plt.show()
+
+    def find_optimal_weights(self) -> dict:
+        """Finds the optimal weights for the highest return portfolio"""
+        max_return = max(self.returns)
+        max_return_idx = np.argmax(self.returns)
+        optimal_weights = self.weights[max_return_idx]
+        
+        stock_weights_dict = {}
+        for i in range(len(self.stocks)):
+            stock_weights_dict[self.stocks[i]] = optimal_weights[i]
+            
+        print(f"Max Return: {max_return * 100:.2f}%")
+        print(f"Corresponding Standard Deviation: {self.stds[max_return_idx]:.4f}")
+        print(f"Optimal Weights: {stock_weights_dict}")
+
+        return stock_weights_dict
+
+def backtest_portfolio(stocks: list, paper_val: float, weights: list, start_date: str, end_date: str) -> float:
+    """
+    Backtests a portfolio of stocks over a given period.
+
+    Parameters:
+        stocks (list): List of stock tickers.
+        paper_val (float): Initial portfolio value.
+        weights (list): Portfolio allocation weights, entered in decimal format.
+        start_date (str): Start date for backtesting.
+        end_date (str): End date for backtesting.
+
+    Returns:
+        float: Final portfolio value.
+    """
+    hpr_list = []
+
+    for stock in stocks:
+        stock_data = yf.download(stock, start=start_date, end=end_date, auto_adjust=False)['Close']
+        if stock_data.empty:
+            print(f"Warning: No data for {stock}")
+            hpr_list.append(0)
+            continue
+        hpr = (stock_data.iloc[-1] - stock_data.iloc[0]) / stock_data.iloc[0]
+        hpr_list.append(hpr)
+
+    # Convert to NumPy for efficient calculations
+    hpr_array = np.array(hpr_list)
+    weights_array = np.array(weights)
+
+    return_on_weights = []
+
+    # Compute final portfolio value
+    for i in range(len(hpr_array)):
+        return_on_weights.append(weights_array[i] * paper_val * (1+hpr_array[i]))
+        
+    final_value = np.sum(return_on_weights)
+    
+    return final_value
+
+
 def get_corr_pairs_of_stocks(tickers: list) -> pd.DataFrame:
     """
     Computes and returns the correlation pairs of given stock tickers.
@@ -88,6 +211,6 @@ def get_sector(ticker: str) -> str:
 
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last Jan. 27 2025')
+print('finance_utils.py successfully loaded, updated last Feb. 04 2025 1:01')
 print('---------------------------------')
 print('\n')
