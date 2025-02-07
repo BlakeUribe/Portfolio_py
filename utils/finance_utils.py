@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 
 
 class MPTOptimizer:
-    """Class will run MPT, with customized iterations, methods will return graph plotting efficient frontier, and return wieghts"""
+    """Class to run MPT with customized iterations, returns efficient frontier graph, and optimal weights"""
+    
     def __init__(self, stocks: list, start_date: str, end_date: str, iterations: int = 100_000):
         self.stocks = stocks
         self.start_date = start_date
@@ -23,25 +24,36 @@ class MPTOptimizer:
         self.returns = []
         self.stds = []
         self.weights = []
-
-        # Download stock data
+        self.sharpe_ratios = []
+         
+        # Download stock data, and log returns
         self.data = yf.download(stocks, start=start_date, end=end_date)["Close"]
+        self.stocks_lr = np.log(1 + self.data.pct_change()).dropna() #lr_stock i = ln(1+p_1/p_0)
+
+        self.spy_data = yf.download('SPY', start=start_date, end=end_date)["Close"]
         
-        # Calculate log returns
-        self.stocks_lr = np.log(1 + self.data.pct_change()).dropna()
+        # Download risk-free rate (set as the first value for simplicity)
+        risk_free_rate_data = yf.download('^IRX', start=start_date, end=end_date)['Close']
+        self.risk_free_rate = risk_free_rate_data.iloc[0] / 100  # Convert to decimal
+
+        # Gather Bench mark data, log returns, and std
+        self.spy_data = yf.download('SPY', start=start_date, end=end_date)["Close"]
+        self.spy_lr = np.log(1 + self.spy_data.pct_change()).dropna()  # Log returns
+        self.spy_return = self.spy_lr.sum() # Annulized log
+        self.spy_std = self.spy_lr.std() * np.sqrt(252) # std
 
     def portfolio_return(self, weights):
         """Calculates expected portfolio return"""
-        return np.dot(self.stocks_lr.mean(), weights) * 252
+        return np.dot(self.stocks_lr.mean(), weights) * 252  # Annualized return, r_protfolio = sum(mu_i * w_i) * 252, or dot product
 
     def portfolio_std(self, weights):
         """Calculates portfolio standard deviation (risk)"""
-        return np.sqrt(np.dot(weights.T, np.dot(self.stocks_lr.cov(), weights)) * 252)
+        return np.sqrt(np.dot(weights.T, np.dot(self.stocks_lr.cov(), weights)) * 252)  # Annualized risk, std_portfolio = sqrt(w^T * cov_matrix * w * 252)
 
     def generate_weights(self):
         """Generates random portfolio weights"""
         rand_weights = np.random.random(len(self.stocks_lr.columns))
-        return rand_weights / rand_weights.sum()
+        return rand_weights / rand_weights.sum()  # Normalize weights to sum to 1
 
     def simulate_portfolios(self):
         """Simulates random portfolios and stores their returns, risks, and weights"""
@@ -54,40 +66,69 @@ class MPTOptimizer:
             self.stds.append(port_std)
             self.weights.append(weights)
 
-    def plot_efficient_frontier(self): # returns figure
-        """Plots the efficient frontier"""
-        plt.figure(figsize=(10, 6))
-        plt.scatter(self.stds, self.returns, c="red", s=0.5, alpha=0.5)
+    def plot_efficient_frontier(self): 
+        """Plots the efficient frontier and the capital allocation line"""
+        
+        # Convert lists to arrays for easy access
+        returns = np.array(self.returns)
+        stds = np.array(self.stds)
+        risk_free_rate = np.array(self.risk_free_rate)
+        # Calculate Sharpe ratios
+        self.sharpe_ratios = (returns - risk_free_rate) / stds
 
-        # Maximum return portfolio
-        max_return_idx = np.argmax(self.returns)
-        plt.scatter(self.stds[max_return_idx], self.returns[max_return_idx], c="green", s=50, label="Max Return")
+        # Find Tangency Portfolio (highest Sharpe ratio)
+        max_sharpe_idx = np.argmax(self.sharpe_ratios)
+        tangency_std = stds[max_sharpe_idx]
+        tangency_return = returns[max_sharpe_idx]
 
-        # Minimum variance portfolio
-        min_std_idx = np.argmin(self.stds)
-        plt.scatter(self.stds[min_std_idx], self.returns[min_std_idx], c="blue", s=50, label="Min Variance")
+        # Generate the CAL line (Capital Allocation Line)
+        cal_std_range = np.linspace(0.1, tangency_std * 2, 100)  # Extend the line beyond the tangency point
+        cal_returns = risk_free_rate + (tangency_return - risk_free_rate) * (cal_std_range / tangency_std)
 
-        plt.xlabel("Portfolio Risk (Std Dev)")
+        # Plot Efficient Frontier
+        plt.scatter(stds, returns, c=self.sharpe_ratios, cmap='viridis', s=0.5, alpha=0.5, label="Efficient Frontier")
+        # plt.scatter(stds, returns, c='red', s=0.5, alpha=0.5, label="Efficient Frontier")
+
+        # Highlight the Tangency Portfolio
+        plt.scatter(tangency_std, tangency_return, c="purple", s=35.0, label="Tangency Portfolio")
+
+        # Plot the CAL Line (Capital Allocation Line)
+        plt.plot(cal_std_range, cal_returns, color="black", linestyle="--", label="Capital Allocation Line (CAL)")
+        
+        # Plot benchmark if needed
+        plt.scatter(self.spy_std, self.spy_return, c='red', s=35.0, label='SPY')
+        # Labels and Legend
+        plt.xlabel("Standard Deviation (Risk)")
         plt.ylabel("Expected Return")
-        plt.title("Efficient Frontier")
+        plt.title("Efficient Frontier and Capital Allocation Line")
         plt.legend()
+        plt.grid(True)
         plt.show()
 
     def find_optimal_weights(self) -> dict:
         """Finds the optimal weights for the highest return portfolio"""
-        max_return = max(self.returns)
-        max_return_idx = np.argmax(self.returns)
-        optimal_weights = self.weights[max_return_idx]
+        returns = np.array(self.returns)
+        stds = np.array(self.stds)
+
+        # Find the index of the maximum return
+        max_sharpe_idx = np.argmax(self.sharpe_ratios)
+
+        # max_return_idx = np.argmax(self.returns)
+        optimal_weights = self.weights[max_sharpe_idx]
         
-        stock_weights_dict = {}
-        for i in range(len(self.stocks)):
-            stock_weights_dict[self.stocks[i]] = optimal_weights[i]
-            
-        print(f"Max Return: {max_return * 100:.2f}%")
-        print(f"Corresponding Standard Deviation: {self.stds[max_return_idx]:.4f}")
+        # Create a dictionary for stock weights
+        stock_weights_dict = {self.stocks[i]: optimal_weights[i] for i in range(len(self.stocks))}
+                
+        # Find and print Tangency Portfolio
+        print(f'-- Optimal Portfolio (CAL) --')
+        print(f"Max Sharpe Ratio: {round(self.sharpe_ratios[max_sharpe_idx], 2)}")
+        print(f"Corresponding Return: {round(returns[max_sharpe_idx], 2)}")
+        print(f"Corresponding Standard Deviation: {round(stds[max_sharpe_idx], 2)}")
         print(f"Optimal Weights: {stock_weights_dict}")
 
+
         return stock_weights_dict
+
 
 def backtest_portfolio(stocks: list, paper_val: float, weights: list, start_date: str, end_date: str) -> float:
     """
@@ -211,6 +252,6 @@ def get_sector(ticker: str) -> str:
 
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last Feb. 04 2025 1:01')
+print('finance_utils.py successfully loaded, updated last Feb. 07 2025 12.04')
 print('---------------------------------')
 print('\n')
