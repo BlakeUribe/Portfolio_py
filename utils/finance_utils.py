@@ -32,9 +32,9 @@ class MPTOptimizer:
 
         self.spy_data = yf.download('SPY', start=start_date, end=end_date)["Close"]
         
-        # Download risk-free rate (set as the first value for simplicity)
+        # Download risk-free rate (Trying out mean of Tbill rate over time period)
         risk_free_rate_data = yf.download('^IRX', start=start_date, end=end_date)['Close']
-        self.risk_free_rate = risk_free_rate_data.iloc[0] / 100  # Convert to decimal
+        self.risk_free_rate = risk_free_rate_data.mean() / 100
 
         # Gather Bench mark data, log returns, and std
         self.spy_data = yf.download('SPY', start=start_date, end=end_date)["Close"]
@@ -105,8 +105,8 @@ class MPTOptimizer:
         plt.grid(True)
         plt.show()
 
-    def find_optimal_weights(self) -> dict:
-        """Finds the optimal weights for the highest return portfolio"""
+    def find_tangency_portfolio(self) -> dict:
+        """Finds the optimal weights, and corresponding info for the highest return portfolio"""
         returns = np.array(self.returns)
         stds = np.array(self.stds)
 
@@ -118,7 +118,11 @@ class MPTOptimizer:
         
         # Create a dictionary for stock weights
         stock_weights_dict = {self.stocks[i]: optimal_weights[i] for i in range(len(self.stocks))}
-                
+        tangecy_porfolio_dict = {'Max Sharpe': self.sharpe_ratios[max_sharpe_idx],
+                                'Corresponding Return': returns[max_sharpe_idx],
+                                'Corresponding Standard Deviation': stds[max_sharpe_idx]
+        } 
+        
         # Find and print Tangency Portfolio
         print(f'-- Optimal Portfolio (CAL) --')
         print(f"Max Sharpe Ratio: {round(self.sharpe_ratios[max_sharpe_idx], 2)}")
@@ -127,7 +131,7 @@ class MPTOptimizer:
         print(f"Optimal Weights: {stock_weights_dict}")
 
 
-        return stock_weights_dict
+        return stock_weights_dict, tangecy_porfolio_dict
 
 
 def backtest_portfolio(stocks: list, paper_val: float, weights: list, start_date: str, end_date: str) -> float:
@@ -250,8 +254,67 @@ def get_sector(ticker: str) -> str:
         return None
 
 
+def find_lending_or_borrowing_portfolio(
+    expected_return_of_risky: float, 
+    expected_std_risky: float, 
+    risk_free_rate: float, 
+    benchmark_std: float,
+    stocks = list,
+    weights = list, 
+    add_margin: bool = True
+) -> dict:
+    """
+    Determines the optimal portfolio allocation between a risky asset and a risk-free asset 
+    based on the given expected return, standard deviation, and benchmark standard deviation.
+    """
+    
+    if expected_std_risky > benchmark_std:
+        # Lending portfolio (T-bill added)
+        risky_weight = benchmark_std / expected_std_risky
+        portfolio_return = (1 - risky_weight) * risk_free_rate + risky_weight * expected_return_of_risky
+        portfolio_std = risky_weight * expected_std_risky
+        weights_adjusted = np.array(weights) * risky_weight
+        
+        return {
+            "Risky Asset Weight": risky_weight,
+            "Risk-Free Asset Weight": 1 - risky_weight,
+            'Stocks': stocks + ['SGOV'],
+            'Stock Weights': np.append(weights_adjusted, (1 - risky_weight)),
+            "Expected Portfolio Return": portfolio_return,
+            "Expected Portfolio Standard Deviation": portfolio_std,
+            "Note": "Portfolio includes T-bills (expected std > benchmark std)."
+        }
+
+    if add_margin:
+        # Borrowing (margin) portfolio
+        risky_weight = benchmark_std / expected_std_risky
+        portfolio_return = risky_weight * expected_return_of_risky
+        portfolio_std = risky_weight * expected_std_risky
+        margin_weights = np.array(weights) * risky_weight
+        
+        return {
+            "Risky Asset Weight": risky_weight,
+            "Risk-Free Asset Weight": "None: Portfolio remains the same, this portfolio std was below Benchmark.",
+            'Stocks': stocks,
+            'Stock Weights': margin_weights,
+            "Expected Portfolio Return": portfolio_return,
+            "Expected Portfolio Standard Deviation": portfolio_std,
+            'Note': 'This is a Margin Portfolio'
+        }
+
+    return {
+            "Risky Asset Weight": risky_weight,
+            "Risk-Free Asset Weight": "None: Portfolio remains the same, this portfolio std was below Benchmark.",
+            'Stocks': stocks,
+            'Stock Weights': weights,
+            "Expected Portfolio Return": portfolio_return,
+            "Expected Portfolio Standard Deviation": portfolio_std,
+            'Note': 'This is the orginal tanency portfolio'
+        }
+
+
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last Feb. 07 2025 12.04')
+print('finance_utils.py successfully loaded, updated last Feb. 17 2025 1:43')
 print('---------------------------------')
 print('\n')
