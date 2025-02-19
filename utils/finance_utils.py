@@ -151,12 +151,15 @@ def backtest_portfolio(stocks: list, paper_val: float, weights: list, start_date
     hpr_list = []
 
     for stock in stocks:
-        stock_data = yf.download(stock, start=start_date, end=end_date, auto_adjust=False)['Close']
+        stock_data = yf.download(stock, start=start_date, end=end_date, auto_adjust=True)['Close'] #notice that google, or yf does not use auto-adjust
         if stock_data.empty:
             print(f"Warning: No data for {stock}")
             hpr_list.append(0)
             continue
-        hpr = (stock_data.iloc[-1] - stock_data.iloc[0]) / stock_data.iloc[0]
+        if stock == '^IRX':
+            hpr = stock_data.mean().iloc[0]/100 # if ticker is real tbill will need to calcuate ret different
+        else:
+            hpr = ((stock_data.iloc[-1] - stock_data.iloc[0]) / stock_data.iloc[0]).iloc[0] #hpr is a series, so need to select the value instead
         hpr_list.append(hpr)
 
     # Convert to NumPy for efficient calculations
@@ -261,7 +264,8 @@ def find_lending_or_borrowing_portfolio(
     benchmark_std: float,
     stocks = list,
     weights = list, 
-    add_margin: bool = True
+    add_margin: bool = True,
+    risk_free_proxy: str = 'SGOV'
 ) -> dict:
     """
     Determines the optimal portfolio allocation between a risky asset and a risk-free asset 
@@ -278,7 +282,7 @@ def find_lending_or_borrowing_portfolio(
         return {
             "Risky Asset Weight": risky_weight,
             "Risk-Free Asset Weight": 1 - risky_weight,
-            'Stocks': stocks + ['SGOV'],
+            'Stocks': stocks + [risk_free_proxy],
             'Stock Weights': np.append(weights_adjusted, (1 - risky_weight)),
             "Expected Portfolio Return": portfolio_return,
             "Expected Portfolio Standard Deviation": portfolio_std,
@@ -312,9 +316,30 @@ def find_lending_or_borrowing_portfolio(
             'Note': 'This is the orginal tanency portfolio'
         }
 
+def plot_cum_ret(tickers: list, start_date: str, end_date: str):
+    
+    # Download historical data
+    data = yf.download(tickers, start=start_date, end=end_date)["Close"]
+    returns = data.pct_change().dropna()
+
+    cumulative_returns = (1 + returns).cumprod() - 1
+    cumulative_returns.plot(figsize=(12,6), title="Cumulative Returns Over Time")
+    # log_returns = np.log(data / data.shift(1))
+    # log_returns.plot(figsize=(12,6), title="Log Returns Over Time")
+
+
+    plt.axhline(0, color='black', linestyle='--', linewidth=3)
+
+    # Formatting
+    plt.xlabel("Date")
+    plt.ylabel("Cumalitve Returns")
+    plt.title("Stock Cumalitve Returns Over Time")
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last Feb. 17 2025 1:43')
+print('finance_utils.py successfully loaded, updated last Feb. 19 2025 10:42')
 print('---------------------------------')
 print('\n')
