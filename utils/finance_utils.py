@@ -317,29 +317,36 @@ def find_lending_or_borrowing_portfolio(
         }
 
 def plot_cum_ret(tickers: list, start_date: str, end_date: str):
-    
     # Download historical data
     data = yf.download(tickers, start=start_date, end=end_date)["Close"]
     returns = data.pct_change().dropna()
 
     cumulative_returns = (1 + returns).cumprod() - 1
-    cumulative_returns.plot(figsize=(12,6), title="Cumulative Returns Over Time")
-    # log_returns = np.log(data / data.shift(1))
-    # log_returns.plot(figsize=(12,6), title="Log Returns Over Time")
+    
+    # Plot cumulative returns
+    plt.figure(figsize=(12, 6))
+    
+    for ticker in cumulative_returns.columns:
+        if ticker == "SPY":
+            # Highlight SPY with a thicker line and distinct color
+            cumulative_returns[ticker].plot(label=ticker, linewidth=2.5, color='darkblue')  
+        else:
+            cumulative_returns[ticker].plot(label=ticker, linewidth=1)
 
-
+    # Add horizontal line at 0 for reference
     plt.axhline(0, color='black', linestyle='--', linewidth=3)
 
     # Formatting
     plt.xlabel("Date")
-    plt.ylabel("Cumalitve Returns")
-    plt.title("Stock Cumalitve Returns Over Time")
+    plt.ylabel("Cumulative Returns")
+    plt.title("Stock Cumulative Returns Over Time")
     plt.legend()
     plt.grid()
     plt.show()
 
-
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last Feb. 19 2025 10:42')
+print('finance_utils.py successfully loaded, updated last Feb. 24 2025 5:26')
 print('---------------------------------')
 print('\n')
+
+# python3 utils/finance_utils.py
