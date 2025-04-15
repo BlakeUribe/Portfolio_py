@@ -221,7 +221,7 @@ def get_top_n_by_sector(df: pd.DataFrame, filter_var: str, top_n: int = 3) -> pd
     Returns:
         pd.DataFrame: DataFrame with the top N companies per sector sorted by the given metric.
     """
-    return df.groupby('sector').apply(lambda x: x.nlargest(top_n, filter_var)).reset_index(drop=True)
+    return df.groupby('Sector').apply(lambda x: x.nlargest(top_n, filter_var)).reset_index(drop=True)
 
 
 # Vectorized function to calculate Sharpe ratio for multiple tickers
@@ -248,13 +248,23 @@ def calculate_sharpe_ratio(tickers: NDArray, tbill: pd.DataFrame, start_date: da
 
     return annualized_sharpe
 
-def get_sector(ticker: str) -> str:
-    try:
-        stock = yf.Ticker(ticker)
-        return stock.info.get('sector', None)  # Get the sector, return None if not available
-    except Exception as e:
-        print(f"Error retrieving sector for {ticker}: {e}")
-        return None
+def get_stock_info(stocks: list, info_to_get: list) -> pd.DataFrame:
+    if len(stocks) > 100:
+        return 'Please set up logging, before getting info'
+    
+    end_list = []  # List of dictionaries
+
+    for stock in stocks:
+        stock_info = yf.Ticker(stock).info
+        stock_data = {val: stock_info.get(val) for val in vals_to_get}
+        stock_data['Ticker'] = stock  # Add ticker symbol
+        end_list.append(stock_data)  
+        
+    df = pd.DataFrame(end_list)
+    
+    df['exDividendDate'] = pd.to_datetime(df['exDividendDate'], unit='s')
+    # Convert list of dictionaries into DataFrame
+    return df
 
 
 def find_lending_or_borrowing_portfolio(
@@ -316,22 +326,33 @@ def find_lending_or_borrowing_portfolio(
             'Note': 'This is the orginal tanency portfolio'
         }
 
-def plot_cum_ret(tickers: list, start_date: str, end_date: str):
+def plot_cum_ret(tickers: list,  weights: list, start_date: str, end_date: str, benchmark='SPY'):
     # Download historical data
+    tickers += [benchmark]
     data = yf.download(tickers, start=start_date, end=end_date)["Close"]
     returns = data.pct_change().dropna()
 
-    cumulative_returns = (1 + returns).cumprod() - 1
+    # Calculate portfolio returns (weighted sum of asset returns)
+    portfolio_returns = (returns.drop(columns=[benchmark]) * weights).sum(axis=1)
+    
+    # Calculate cumulative returns
+    cumulative_returns = (1 + portfolio_returns).cumprod() - 1
     
     # Plot cumulative returns
     plt.figure(figsize=(12, 6))
     
-    for ticker in cumulative_returns.columns:
-        if ticker == "SPY":
+    # Plot individual asset cumulative returns
+    for ticker in returns.columns:
+        if ticker == benchmark:
             # Highlight SPY with a thicker line and distinct color
-            cumulative_returns[ticker].plot(label=ticker, linewidth=2.5, color='darkblue')  
+            cumulative_returns_ticker = (1 + returns[ticker]).cumprod() - 1
+            cumulative_returns_ticker.plot(label=ticker, linewidth=2.5, color='darkblue')
         else:
-            cumulative_returns[ticker].plot(label=ticker, linewidth=1)
+            cumulative_returns_ticker = (1 + returns[ticker]).cumprod() - 1
+            cumulative_returns_ticker.plot(label=ticker, linewidth=1, linestyle='dashed')
+
+    # Plot portfolio cumulative returns
+    cumulative_returns.plot(label="Portfolio", linewidth=2.5, color='green')
 
     # Add horizontal line at 0 for reference
     plt.axhline(0, color='black', linestyle='--', linewidth=3)
@@ -339,13 +360,13 @@ def plot_cum_ret(tickers: list, start_date: str, end_date: str):
     # Formatting
     plt.xlabel("Date")
     plt.ylabel("Cumulative Returns")
-    plt.title("Stock Cumulative Returns Over Time")
+    plt.title("Stock and Portfolio Cumulative Returns Over Time")
     plt.legend()
     plt.grid()
     plt.show()
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last Feb. 24 2025 5:26')
+print('finance_utils.py successfully loaded, updated last March. 17 2025 7:32')
 print('---------------------------------')
 print('\n')
 
