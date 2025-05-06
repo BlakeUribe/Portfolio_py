@@ -3,6 +3,12 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime
 from numpy.typing import NDArray
+import logging
+from tenacity import retry, wait_exponential, stop_after_attempt, before_log, after_log
+
+# Create and configure logger
+logger = logging.getLogger("backoff_logger")
+logging.basicConfig(level=logging.INFO)
 
 # If Updated remember to adjust date at bottom
 
@@ -14,7 +20,7 @@ import matplotlib.pyplot as plt
 
 
 class MPTOptimizer:
-    """Class to run MPT with customized iterations, returns efficient frontier graph, and optimal weights"""
+    """Class to run MPT with customized iterations, returns efficient frontier graph, and optimal weights, with intent of maximaizing sharpe"""
     
     def __init__(self, stocks: list, start_date: str, end_date: str, iterations: int = 100_000):
         self.stocks = stocks
@@ -44,7 +50,7 @@ class MPTOptimizer:
 
     def portfolio_return(self, weights):
         """Calculates expected portfolio return"""
-        return np.dot(self.stocks_lr.mean(), weights) * 252  # Annualized return, r_protfolio = sum(mu_i * w_i) * 252, or dot product
+        return np.dot(self.stocks_lr.mean(), weights) * 252  # Annualized return, r_protfolio = sum(mu_i * w_i) * 252, or dot product of mu * w_i
 
     def portfolio_std(self, weights):
         """Calculates portfolio standard deviation (risk)"""
@@ -224,10 +230,23 @@ def get_top_n_by_sector(df: pd.DataFrame, filter_var: str, top_n: int = 3) -> pd
     return df.groupby('Sector').apply(lambda x: x.nlargest(top_n, filter_var)).reset_index(drop=True)
 
 
+
+# Exponential backoff: retry up to 5 times, with exponential wait
+
+
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=30),  # Adjust backoff strategy here
+    stop=stop_after_attempt(5),                         # Try max 5 times
+    before=before_log(logger, logging.INFO),
+    after=after_log(logger, logging.INFO)
+)
+def fetch_data_with_backoff(tickers: NDArray, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+    return yf.download(tickers.tolist(), start=start_date, end=end_date, auto_adjust=True)['Close']
+
 # Vectorized function to calculate Sharpe ratio for multiple tickers
-def calculate_sharpe_ratio(tickers: NDArray, tbill: pd.DataFrame, start_date: datetime, end_date: datetime) -> float:
-    # Download stock data for all tickers at once to minimize repeated API calls
-    stock_data = yf.download(tickers.tolist(), start=start_date, end=end_date, auto_adjust=True)['Close']
+def calculate_sharpe_ratio(tickers: NDArray, tbill: pd.DataFrame, start_date: datetime, end_date: datetime):
+    # Download stock data with backoff
+    stock_data = fetch_data_with_backoff(tickers, start_date, end_date)
 
     # Calculate daily returns for all tickers
     daily_returns = stock_data.pct_change()
@@ -244,7 +263,7 @@ def calculate_sharpe_ratio(tickers: NDArray, tbill: pd.DataFrame, start_date: da
     average_excess_daily_ret = excess_returns.mean()
 
     daily_sharpe_ratio = average_excess_daily_ret / excess_returns_std
-    annualized_sharpe = daily_sharpe_ratio * np.sqrt(360)
+    annualized_sharpe = daily_sharpe_ratio * np.sqrt(252)
 
     return annualized_sharpe
 
@@ -366,7 +385,7 @@ def plot_cum_ret(tickers: list,  weights: list, start_date: str, end_date: str, 
     plt.show()
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last March. 17 2025 7:32')
+print('finance_utils.py successfully loaded, updated last April. 29 2025 4:55')
 print('---------------------------------')
 print('\n')
 

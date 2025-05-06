@@ -5,3 +5,5 @@ tqdm
 tenacity
 python-dotenv
 aiohttp
+scipy
+seaborn

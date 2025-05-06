@@ -1,17 +1,15 @@
-import numpy as np
 
-PROGRAM_START_DATE = '2024-03-12' # used to begin progam date
-PROGRAM_END_DATE = '2025-03-12' # used to end program date
+PROGRAM_START_DATE = '2024-04-15' # used to begin progam date
+PROGRAM_END_DATE = '2025-04-15' # used to end program date
 
 TOP_N_STOCKS = 8 # Used to select top n stocks based on filtered critieria
 
-print('Updated on 03/12/2025 12:30')
+print('Updated on 04/15/2025 5:56')
 # python3 utils/config.py
 
-
 # New Entry from portfolio_selection.ipynb
-mpt_stocks_for_sharpe = ['DE', 'NEM', 'CQP', 'GRMN', 'CSCO', 'VST', 'RCL', 'MPLX']
-mpt_stocks_for_profit = ['DE', 'NEM', 'CQP', 'BBVA', 'EQR', 'BKNG', 'AVB', 'AAPL']
+mpt_stocks_for_sharpe = ['EXEL', 'THC', 'FUTU', 'FFIV', 'FOXA', 'SNA', 'MLI', 'COKE']
+mpt_stocks_for_profit = ['EXEL', 'THC', 'FUTU', 'FFIV', 'FOXA', 'SNA', 'MLI', 'COKE']
 
 # New Entry from backtesting.ipynb
-chosen_portfolio = {'Risky Asset Weight': 0.8382894952657721, 'Risk-Free Asset Weight': 0.16171050473422788, 'Stocks': ['DE', 'NEM', 'CQP', 'GRMN', 'CSCO', 'VST', 'RCL', 'MPLX', 'SGOV'], 'Stock Weights': [0.015581233401949376, 0.007306133337610667, 0.10209469131664765, 0.1740786200572725, 0.3540262805274835, 0.053924304833807196, 0.10649307073932002, 0.02478516105168133, 0.16171050473422788], 'Expected Portfolio Return': 0.3102012919562827, 'Expected Portfolio Standard Deviation': 0.13413692573975414, 'Note': 'Portfolio includes T-bills (expected std > benchmark std).'}
+chosen_portfolio = {'Risky Asset Weight': 1.0318328923852735, 'Risk-Free Asset Weight': 'None: Portfolio remains the same, this portfolio std was below Benchmark.', 'Stocks': ['EXEL', 'THC', 'FUTU', 'FFIV', 'FOXA', 'SNA', 'MLI', 'COKE', 'SPY'], 'Stock Weights': [0.24571091510251686, 0.18162668816539185, 0.11251342103201238, 0.3987355971633065, 0.044866789415142785, 0.011951276066965305, 0.028623983018949483, 0.007804222420988425], 'Expected Portfolio Return': 0.49448369454450297, 'Expected Portfolio Standard Deviation': 0.19438513228153506, 'Note': 'This is a Margin Portfolio'}
