@@ -126,7 +126,7 @@ class MonteCarloSim:
     
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last June. 15 2025 4:55')
+print('models.py successfully loaded, updated last June. 15 2025 4:55')
 print('---------------------------------')
 print('\n')
 # python3 utils/models.py
