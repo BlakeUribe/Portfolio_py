@@ -5,19 +5,23 @@ from datetime import datetime
 from numpy.typing import NDArray
 import logging
 from tenacity import retry, wait_exponential, stop_after_attempt, before_log, after_log
+import matplotlib.pyplot as plt
+
 
 # Create and configure logger
 logger = logging.getLogger("backoff_logger")
 logging.basicConfig(level=logging.INFO)
 
-# If Updated remember to adjust date at bottom
 
-
-import yfinance as yf
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=30),  # Adjust backoff strategy here
+    stop=stop_after_attempt(5),                         # Try max 5 times
+    before=before_log(logger, logging.INFO),
+    after=after_log(logger, logging.INFO)
+)
+def fetch_data_with_backoff(tickers: NDArray, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+    """Fetch Yf close data with backoff"""
+    return yf.download(tickers.tolist(), start=start_date, end=end_date, auto_adjust=True)['Close']
 
 
 def backtest_portfolio(stocks: list, paper_val: float, weights: list, start_date: str, end_date: str) -> float:
@@ -59,7 +63,7 @@ def backtest_portfolio(stocks: list, paper_val: float, weights: list, start_date
     return np.sum(return_on_weights)
 
 
-def get_corr_pairs_of_stocks(tickers: list) -> pd.DataFrame:
+def get_corr_pairs_of_stocks(tickers: list, start_date, end_date) -> pd.DataFrame:
     """
     Computes and returns the correlation pairs of given stock tickers.
 
@@ -71,7 +75,7 @@ def get_corr_pairs_of_stocks(tickers: list) -> pd.DataFrame:
     """
     
     # Download adjusted closing prices for the past year
-    grouped_sector_data = yf.download(tickers, period='1y', auto_adjust=True)['Close']
+    grouped_sector_data = yf.download(tickers, start=start_date, end=end_date, auto_adjust=True)['Close']
     correlation_matrix = grouped_sector_data.corr()
     corr_pairs = correlation_matrix.stack()
 
@@ -107,18 +111,6 @@ def get_top_n_by_sector(df: pd.DataFrame, filter_var: str, top_n: int = 3) -> pd
 
 
 
-# Exponential backoff: retry up to 5 times, with exponential wait
-
-
-@retry(
-    wait=wait_exponential(multiplier=1, min=2, max=30),  # Adjust backoff strategy here
-    stop=stop_after_attempt(5),                         # Try max 5 times
-    before=before_log(logger, logging.INFO),
-    after=after_log(logger, logging.INFO)
-)
-def fetch_data_with_backoff(tickers: NDArray, start_date: datetime, end_date: datetime) -> pd.DataFrame:
-    """Fetch Yf close data with backoff"""
-    return yf.download(tickers.tolist(), start=start_date, end=end_date, auto_adjust=True)['Close']
 
 # Vectorized function to calculate Sharpe ratio for multiple tickers
 def calculate_sharpe_ratio(tickers: NDArray, tbill: pd.DataFrame, start_date: datetime, end_date: datetime):
@@ -128,10 +120,13 @@ def calculate_sharpe_ratio(tickers: NDArray, tbill: pd.DataFrame, start_date: da
     stock_data = fetch_data_with_backoff(tickers, start_date, end_date)
 
     # Calculate daily returns for all tickers
-    daily_returns = stock_data.pct_change()
+    daily_returns = stock_data.pct_change(fill_method=None)
 
     # Drop NaNs and align T-Bill data
-    stock_data_clean = daily_returns.dropna()
+    stock_data_clean = daily_returns.dropna(axis=1, how='all').dropna()
+    # this is dropping all need to fix, so it only drops stock that are entireity na
+    
+    
     tbill_aligned = tbill.reindex(stock_data_clean.index, method='ffill')
 
     # Calculate excess returns by subtracting the T-Bill rate
@@ -154,7 +149,7 @@ def get_stock_info(stocks: list, info_to_get: list) -> pd.DataFrame:
 
     for stock in stocks:
         stock_info = yf.Ticker(stock).info
-        stock_data = {val: stock_info.get(val) for val in vals_to_get}
+        stock_data = {val: stock_info.get(val) for val in info_to_get}
         stock_data['Ticker'] = stock  # Add ticker symbol
         end_list.append(stock_data)  
         
@@ -264,8 +259,8 @@ def plot_cum_ret(tickers: list,  weights: list, start_date: str, end_date: str, 
     plt.show()
 
 print('\n---------------------------------')
-print('finance_utils.py successfully loaded, updated last April. 29 2025 4:55')
+print('finance_utils.py successfully loaded, updated on 07/12/2025 2:57')
 print('---------------------------------')
 print('\n')
 
-# python3 utils/finance_utils.py
+# python3 utils/finance_utils.py 

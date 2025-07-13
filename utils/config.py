@@ -1,17 +1,17 @@
 
-PROGRAM_START_DATE = '2024-04-15' # used to begin progam date
-PROGRAM_END_DATE = '2025-04-15' # used to end program date
+PROGRAM_START_DATE = '2024-07-12' # used to begin progam date
+PROGRAM_END_DATE = '2025-07-12' # used to end program date
 
-N_STOCKS_TO_GET = 100 # Used to select stocks from yf
+N_STOCKS_TO_GET = 3000 # Used to select stocks from yf
 TOP_N_STOCKS = 8 # Used to select top n stocks based on filtered critieria
 
-print('Updated on 06/05/2025 5:56')
+print('Updated on 06/12/2025 3:11', PROGRAM_END_DATE)
 # python3 utils/config.py
 
 
 # New Entry from portfolio_selection.ipynb
-mpt_stocks_for_sharpe = ['AU', 'CWAN', 'CALM', 'HALO', 'KGC', 'ANYYY', 'MLI', 'EPRT']
-mpt_stocks_for_profit = ['AU', 'CWAN', 'CALM', 'HALO', 'KGC', 'ANYYY', 'MLI', 'EPRT']
+mpt_stocks_for_sharpe = ['LRN', 'MGY', 'KGC', 'ABT', 'ATGE', 'OMAB', 'FINV', 'IDCC']
+mpt_stocks_for_profit = ['LRN', 'MGY', 'KGC', 'ABT', 'ATGE', 'OMAB', 'FINV', 'IDCC']
 
 # New Entry from backtesting.ipynb
-chosen_portfolio = {'Risky Asset Weight': 0.9717743686267484, 'Risk-Free Asset Weight': 0.028225631373251625, 'Stocks': ['AU', 'CWAN', 'CALM', 'HALO', 'KGC', 'ANYYY', 'MLI', 'EPRT', 'SGOV', 'SPY'], 'Stock Weights': [0.20885879727839787, 0.01017133851852177, 0.2505440598375792, 0.03925098631052384, 0.10072504421719634, 0.11236917647559652, 0.23589723907458876, 0.013957726914344012, 0.028225631373251625], 'Expected Portfolio Return': 0.5127199660391464, 'Expected Portfolio Standard Deviation': 0.19438517504703082, 'Note': 'Portfolio includes T-bills (expected std > benchmark std).'}
+chosen_portfolio = {'Risky Asset Weight': 1.1610880015494847, 'Risk-Free Asset Weight': 'None: Portfolio remains the same, this portfolio std was below Benchmark.', 'Stocks': ['LRN', 'MGY', 'KGC', 'ABT', 'ATGE', 'OMAB', 'FINV', 'IDCC', 'SPY'], 'Stock Weights': [0.25485541723966326, 0.07546662363813973, 0.17716086292717315, 0.2451036768022216, 0.057666392031968085, 0.16509719898412803, 0.004720749744566888, 0.18101708018162393], 'Expected Portfolio Return': 0.6251713769332887, 'Expected Portfolio Standard Deviation': 0.20428190462991602, 'Note': 'This is a Margin Portfolio'}
